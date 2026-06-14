@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ScalexAI — Live Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0e0f;
+    --panel: #14181a;
+    --line: #262b2d;
+    --text: #d8dedb;
+    --dim: #7c8a87;
+    --accent: #6dffb0;
+    --warn: #ffb86d;
+    --err: #ff6d6d;
+    --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    padding: 28px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .pulse {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 8px;
+    animation: pulse 1.4s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(109,255,176,0.5); }
+    50% { opacity: 0.4; box-shadow: 0 0 0 6px rgba(109,255,176,0); }
+  }
+
+  .status-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+  }
+
+  .card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+
+  .card .value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+  }
+
+  .card .value.warn { color: var(--warn); }
+  .card .value.err { color: var(--err); }
+  .card .value.ok { color: var(--accent); }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px;
+  }
+
+  .panel h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--dim);
+    margin: 0 0 14px 0;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .dot.ok { background: var(--accent); }
+  .dot.open { background: var(--err); }
+
+  .controls {
+    margin-top: 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  .controls code {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="pulse"></span>SCALE<span>X</span>AI — live console</h1>
+  <div class="status-line" id="now">connecting…</div>
+</header>
+
+<div class="grid">
+  <div class="card"><div class="label">Requests / sec (10s)</div><div class="value ok" id="rps">0</div></div>
+  <div class="card"><div class="label">Avg latency</div><div class="value" id="avg">0 ms</div></div>
+  <div class="card"><div class="label">P95 latency</div><div class="value" id="p95">0 ms</div></div>
+  <div class="card"><div class="label">Error rate</div><div class="value" id="err">0%</div></div>
+  <div class="card"><div class="label">Queue depth</div><div class="value" id="queue">0</div></div>
+  <div class="card"><div class="label">CPU / Mem</div><div class="value" id="sys">0% / 0%</div></div>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <h2>Latency — last 30 requests (ms)</h2>
+    <canvas id="latencyChart" height="120"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Tool health</h2>
+    <table id="healthTable">
+      <thead><tr><th>Tool</th><th>Status</th><th>Failures</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Per-tool stats</h2>
+  <table id="toolTable">
+    <thead><tr><th>Tool</th><th>Requests</th><th>Avg latency</th><th>Failures</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="controls">
+  Send a test request: <code>curl -X POST http://localhost:8000/api/task -H "Content-Type: application/json" -d "{\"task_type\":\"fast\"}"</code>
+</div>
+
+<script>
+const ctx = document.getElementById('latencyChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'latency (ms)',
+      data: [],
+      borderColor: '#6dffb0',
+      backgroundColor: 'rgba(109,255,176,0.08)',
+      tension: 0.3,
+      pointRadius: 0,
+      fill: true,
+    }]
+  },
+  options: {
+    animation: false,
+    scales: {
+      x: { ticks: { color: '#7c8a87', maxTicksLimit: 8 }, grid: { color: '#262b2d' } },
+      y: { ticks: { color: '#7c8a87' }, grid: { color: '#262b2d' }, beginAtZero: true }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/metrics');
+    const m = await res.json();
+
+    document.getElementById('now').textContent = 'live — ' + new Date().toLocaleTimeString();
+    document.getElementById('rps').textContent = m.rps_last_10s;
+    document.getElementById('avg').textContent = m.avg_latency_ms + ' ms';
+    document.getElementById('p95').textContent = m.p95_latency_ms + ' ms';
+
+    const errEl = document.getElementById('err');
+    errEl.textContent = m.error_rate_pct + '%';
+    errEl.className = 'value ' + (m.error_rate_pct > 10 ? 'err' : m.error_rate_pct > 2 ? 'warn' : 'ok');
+
+    document.getElementById('queue').textContent = m.queue_depth;
+    document.getElementById('sys').textContent = m.cpu_percent + '% / ' + m.memory_percent + '%';
+
+    // latency chart
+    chart.data.labels = m.recent.map((_, i) => i + 1);
+    chart.data.datasets[0].data = m.recent.map(r => r.latency_ms);
+    chart.update();
+
+    // per-tool table
+    const toolBody = document.querySelector('#toolTable tbody');
+    toolBody.innerHTML = m.by_tool.map(t =>
+      `<tr><td>${t.routed_to}</td><td>${t.count}</td><td>${t.avg_latency} ms</td><td>${t.failures}</td></tr>`
+    ).join('');
+
+    // health table
+    const healthBody = document.querySelector('#healthTable tbody');
+    healthBody.innerHTML = Object.entries(m.health).map(([name, h]) =>
+      `<tr><td>${name}</td><td><span class="dot ${h.circuit_open ? 'open' : 'ok'}"></span>${h.circuit_open ? 'circuit open' : 'healthy'}</td><td>${h.failures}</td></tr>`
+    ).join('');
+
+  } catch (e) {
+    document.getElementById('now').textContent = 'disconnected — retrying…';
+  }
+}
+
+refresh();
+setInterval(refresh, 1000);
+</script>
+
+</body>
+</html>

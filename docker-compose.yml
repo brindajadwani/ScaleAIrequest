@@ -1,0 +1,80 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: scalexai
+      POSTGRES_USER: scalexai
+      POSTGRES_PASSWORD: scalexai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scalexai"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  tool_a:
+    build: ./mock_tools
+    command: uvicorn tool_a:app --host 0.0.0.0 --port 8000
+
+  tool_b:
+    build: ./mock_tools
+    command: uvicorn tool_b:app --host 0.0.0.0 --port 8000
+
+  tool_c:
+    build: ./mock_tools
+    command: uvicorn tool_c:app --host 0.0.0.0 --port 8000
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./frontend:/frontend:ro
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://scalexai:scalexai@postgres:5432/scalexai
+      TOOL_A_URL: http://tool_a:8000/run
+      TOOL_B_URL: http://tool_b:8000/run
+      TOOL_C_URL: http://tool_c:8000/run
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: ./worker
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://scalexai:scalexai@postgres:5432/scalexai
+      TOOL_A_URL: http://tool_a:8000/run
+      TOOL_B_URL: http://tool_b:8000/run
+      TOOL_C_URL: http://tool_c:8000/run
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      tool_a:
+        condition: service_started
+      tool_b:
+        condition: service_started
+      tool_c:
+        condition: service_started
+
+volumes:
+  pgdata:
