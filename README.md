@@ -1,4 +1,4 @@
-c# ScalexAI v2 — Redis + Postgres + Docker (Horizontally Scalable)
+# ScalexAI v2 — Redis + Postgres + Docker (Horizontally Scalable)
 
 This is the "real infrastructure" version of ScalexAI. Instead of an
 in-process queue and SQLite, this version uses:
