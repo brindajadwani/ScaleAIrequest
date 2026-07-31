@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Environment / secrets (never commit real credentials)
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker local data (Postgres volume lives in Docker, not in repo)
+pgdata/
+
+# Logs and local test output
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Locust local reports
+locust_*.html
+locust_*.csv
