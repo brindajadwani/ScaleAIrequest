@@ -60,6 +60,7 @@ services:
 
   worker:
     build: ./worker
+    restart: unless-stopped
     env_file:
       - .env
     environment:

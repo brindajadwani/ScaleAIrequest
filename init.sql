@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS requests (
     routed_to TEXT,
     status TEXT,
     latency_ms INTEGER,
-    queue_wait_ms INTEGER,
+    queue_wait_ms BIGINT,
     created_at TIMESTAMP DEFAULT now()
 );
 

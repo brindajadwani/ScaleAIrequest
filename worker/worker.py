@@ -24,6 +24,13 @@ import router as route_module
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://scalexai:scalexai@postgres:5432/scalexai")
 WORKER_ID = os.environ.get("HOSTNAME", "worker")
+MAX_QUEUE_WAIT_MS = 2_147_483_647
+
+
+def normalize_queue_wait_ms(enqueued_at: float) -> int:
+    """Clamp queue wait so stale Redis tasks don't overflow Postgres INTEGER."""
+    wait_ms = int((time.time() - enqueued_at) * 1000)
+    return max(0, min(wait_ms, MAX_QUEUE_WAIT_MS))
 
 
 async def main():
@@ -48,7 +55,7 @@ async def main():
             task_type = task.get("task_type", "fast")
             request_id = task.get("request_id")
             enqueued_at = task.get("enqueued_at", time.time())
-            queue_wait_ms = int((time.time() - enqueued_at) * 1000)
+            queue_wait_ms = normalize_queue_wait_ms(enqueued_at)
 
             route, key = await route_module.select_route(redis_client, task_type)
 

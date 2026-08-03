@@ -2,206 +2,453 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>ScalexAI — Live Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ScalexAI — Operations Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0b0e0f;
-    --panel: #14181a;
-    --line: #262b2d;
-    --text: #d8dedb;
-    --dim: #7c8a87;
-    --accent: #6dffb0;
-    --warn: #ffb86d;
-    --err: #ff6d6d;
+    --bg: #070b10;
+    --bg-2: #0d1219;
+    --panel: #121923;
+    --panel-2: #182230;
+    --line: #243041;
+    --text: #e8eef6;
+    --muted: #8b9cb0;
+    --accent: #3dd6c6;
+    --accent-2: #6ea8ff;
+    --warn: #ffb347;
+    --err: #ff6b7a;
+    --ok: #4ade80;
     --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
-    --sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+    --sans: "Segoe UI", Inter, -apple-system, sans-serif;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    --radius: 14px;
   }
 
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: var(--bg);
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(61, 214, 198, 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgba(110, 168, 255, 0.08), transparent 24%),
+      var(--bg);
     color: var(--text);
     font-family: var(--sans);
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    border-right: 1px solid var(--line);
+    background: rgba(7, 11, 16, 0.92);
+    padding: 28px 22px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .brand span { color: var(--accent); }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 28px;
+  }
+
+  .nav-block {
+    margin-bottom: 28px;
+  }
+
+  .nav-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .nav-item {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    margin-bottom: 6px;
+    border: 1px solid transparent;
+  }
+
+  .nav-item.active,
+  .nav-item:hover {
+    background: var(--panel);
+    border-color: var(--line);
+  }
+
+  .actions {
+    display: grid;
+    gap: 10px;
+  }
+
+  button.action {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  button.action:hover {
+    transform: translateY(-1px);
+    border-color: rgba(61, 214, 198, 0.45);
+    background: var(--panel-2);
+  }
+
+  button.action.primary {
+    background: linear-gradient(135deg, rgba(61, 214, 198, 0.18), rgba(110, 168, 255, 0.12));
+    border-color: rgba(61, 214, 198, 0.35);
+  }
+
+  .main {
     padding: 28px;
   }
 
-  header {
+  .topbar {
     display: flex;
-    align-items: baseline;
     justify-content: space-between;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 16px;
+    align-items: center;
+    gap: 16px;
     margin-bottom: 24px;
   }
 
-  header h1 {
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+  .topbar h1 {
     margin: 0;
+    font-size: 28px;
+    font-weight: 700;
   }
 
-  header h1 span { color: var(--accent); }
+  .topbar p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
 
   .pulse {
-    display: inline-block;
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: var(--accent);
-    margin-right: 8px;
-    animation: pulse 1.4s ease-in-out infinite;
-    vertical-align: middle;
+    background: var(--ok);
+    box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.45);
+    animation: pulse 1.6s infinite;
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(109,255,176,0.5); }
-    50% { opacity: 0.4; box-shadow: 0 0 0 6px rgba(109,255,176,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.45); }
+    70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
   }
 
-  .status-line {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--dim);
-  }
-
-  .grid {
+  .metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 14px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
 
   .card {
-    background: var(--panel);
+    background: linear-gradient(180deg, rgba(24, 34, 48, 0.95), rgba(18, 25, 35, 0.95));
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 16px 18px;
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
   }
 
   .card .label {
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--dim);
-    margin-bottom: 8px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 10px;
   }
 
   .card .value {
     font-family: var(--mono);
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
   }
 
-  .card .value.warn { color: var(--warn); }
-  .card .value.err { color: var(--err); }
-  .card .value.ok { color: var(--accent); }
+  .card .hint {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
 
-  .panels {
+  .value.ok { color: var(--ok); }
+  .value.warn { color: var(--warn); }
+  .value.err { color: var(--err); }
+  .value.info { color: var(--accent-2); }
+
+  .layout {
     display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 14px;
-    margin-bottom: 24px;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
   }
 
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--radius);
     padding: 18px;
+    box-shadow: var(--shadow);
   }
 
   .panel h2 {
-    font-family: var(--mono);
+    margin: 0 0 16px;
     font-size: 13px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--dim);
-    margin: 0 0 14px 0;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-family: var(--mono);
   }
 
-  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
-  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
-  th { color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+  .health-grid {
+    display: grid;
+    gap: 12px;
+  }
 
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
-  .dot.ok { background: var(--accent); }
-  .dot.open { background: var(--err); }
+  .health-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
 
-  .controls {
-    margin-top: 24px;
+  .health-card .name {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .health-card .meta {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .badge.ok { background: rgba(74, 222, 128, 0.12); color: var(--ok); }
+  .badge.open { background: rgba(255, 107, 122, 0.12); color: var(--err); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
     font-family: var(--mono);
     font-size: 12px;
-    color: var(--dim);
   }
 
-  .controls code {
-    background: var(--panel);
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .status-chip {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+
+  .status-chip.success { background: rgba(74, 222, 128, 0.12); color: var(--ok); }
+  .status-chip.failed { background: rgba(255, 107, 122, 0.12); color: var(--err); }
+
+  .toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    min-width: 260px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--panel-2);
     border: 1px solid var(--line);
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: var(--text);
+    box-shadow: var(--shadow);
+    font-family: var(--mono);
+    font-size: 12px;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 1100px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+    .layout { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">SCALE<span>X</span>AI</div>
+    <div class="subtitle">Redis queue, Postgres metrics, and horizontally scalable workers.</div>
 
-<header>
-  <h1><span class="pulse"></span>SCALE<span>X</span>AI — live console</h1>
-  <div class="status-line" id="now">connecting…</div>
-</header>
+    <div class="nav-block">
+      <div class="nav-title">Views</div>
+      <a class="nav-item active" href="/">Operations dashboard</a>
+      <a class="nav-item" href="/api/metrics" target="_blank" rel="noreferrer">Raw metrics JSON</a>
+    </div>
 
-<div class="grid">
-  <div class="card"><div class="label">Requests / sec (10s)</div><div class="value ok" id="rps">0</div></div>
-  <div class="card"><div class="label">Avg latency</div><div class="value" id="avg">0 ms</div></div>
-  <div class="card"><div class="label">P95 latency</div><div class="value" id="p95">0 ms</div></div>
-  <div class="card"><div class="label">Error rate</div><div class="value" id="err">0%</div></div>
-  <div class="card"><div class="label">Queue depth</div><div class="value" id="queue">0</div></div>
-  <div class="card"><div class="label">CPU / Mem</div><div class="value" id="sys">0% / 0%</div></div>
+    <div class="nav-block">
+      <div class="nav-title">Manual tasks</div>
+      <div class="actions">
+        <button class="action primary" data-task="fast">Send fast task</button>
+        <button class="action" data-task="slow">Send slow task</button>
+        <button class="action" data-task="flaky">Send flaky task</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Operations Dashboard</h1>
+        <p>Live view of queue depth, routing, latency, and circuit-breaker health.</p>
+      </div>
+      <div class="status-pill"><span class="pulse"></span><span id="now">connecting…</span></div>
+    </div>
+
+    <section class="metrics">
+      <div class="card"><div class="label">Requests / sec</div><div class="value ok" id="rps">0</div><div class="hint">Last 10 seconds</div></div>
+      <div class="card"><div class="label">Total requests</div><div class="value info" id="total">0</div><div class="hint">Stored in Postgres</div></div>
+      <div class="card"><div class="label">Avg latency</div><div class="value" id="avg">0 ms</div><div class="hint">Across all requests</div></div>
+      <div class="card"><div class="label">P95 latency</div><div class="value" id="p95">0 ms</div><div class="hint">Last 500 requests</div></div>
+      <div class="card"><div class="label">Error rate</div><div class="value ok" id="err">0%</div><div class="hint">Failed / total</div></div>
+      <div class="card"><div class="label">Queue depth</div><div class="value" id="queue">0</div><div class="hint">Pending in Redis</div></div>
+      <div class="card"><div class="label">CPU / memory</div><div class="value" id="sys">0% / 0%</div><div class="hint">Gateway container</div></div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <h2>Latency trend — last 30 requests</h2>
+        <canvas id="latencyChart" height="120"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Tool health</h2>
+        <div class="health-grid" id="healthGrid"></div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <h2>Routing volume by tool</h2>
+        <canvas id="toolChart" height="120"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Per-tool stats</h2>
+        <table id="toolTable">
+          <thead><tr><th>Tool</th><th>Requests</th><th>Avg latency</th><th>Failures</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Recent activity</h2>
+      <table id="recentTable">
+        <thead><tr><th>#</th><th>Tool</th><th>Status</th><th>Latency</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
 </div>
 
-<div class="panels">
-  <div class="panel">
-    <h2>Latency — last 30 requests (ms)</h2>
-    <canvas id="latencyChart" height="120"></canvas>
-  </div>
-  <div class="panel">
-    <h2>Tool health</h2>
-    <table id="healthTable">
-      <thead><tr><th>Tool</th><th>Status</th><th>Failures</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</div>
-
-<div class="panel">
-  <h2>Per-tool stats</h2>
-  <table id="toolTable">
-    <thead><tr><th>Tool</th><th>Requests</th><th>Avg latency</th><th>Failures</th></tr></thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<div class="controls">
-  Send a test request: <code>curl -X POST http://localhost:8000/api/task -H "Content-Type: application/json" -d "{\"task_type\":\"fast\"}"</code>
-</div>
+<div class="toast" id="toast"></div>
 
 <script>
-const ctx = document.getElementById('latencyChart').getContext('2d');
-const chart = new Chart(ctx, {
+const chartDefaults = {
+  color: '#8b9cb0',
+  borderColor: '#243041',
+};
+
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+
+const latencyChart = new Chart(document.getElementById('latencyChart'), {
   type: 'line',
   data: {
     labels: [],
     datasets: [{
       label: 'latency (ms)',
       data: [],
-      borderColor: '#6dffb0',
-      backgroundColor: 'rgba(109,255,176,0.08)',
-      tension: 0.3,
+      borderColor: '#3dd6c6',
+      backgroundColor: 'rgba(61, 214, 198, 0.12)',
+      tension: 0.35,
       pointRadius: 0,
       fill: true,
     }]
@@ -209,11 +456,63 @@ const chart = new Chart(ctx, {
   options: {
     animation: false,
     scales: {
-      x: { ticks: { color: '#7c8a87', maxTicksLimit: 8 }, grid: { color: '#262b2d' } },
-      y: { ticks: { color: '#7c8a87' }, grid: { color: '#262b2d' }, beginAtZero: true }
+      x: { ticks: { maxTicksLimit: 8 }, grid: { color: '#243041' } },
+      y: { beginAtZero: true, grid: { color: '#243041' } }
     },
     plugins: { legend: { display: false } }
   }
+});
+
+const toolChart = new Chart(document.getElementById('toolChart'), {
+  type: 'bar',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'requests',
+      data: [],
+      backgroundColor: ['rgba(61,214,198,0.75)', 'rgba(110,168,255,0.75)', 'rgba(255,179,71,0.75)'],
+      borderRadius: 8,
+    }]
+  },
+  options: {
+    animation: false,
+    scales: {
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: '#243041' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+function setValueClass(el, value, warnAt, errAt, suffix = '') {
+  el.textContent = value + suffix;
+  el.className = 'value';
+  if (value >= errAt) el.classList.add('err');
+  else if (value >= warnAt) el.classList.add('warn');
+  else el.classList.add('ok');
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
+async function submitTask(taskType) {
+  showToast(`Submitting ${taskType} task…`);
+  const res = await fetch('/api/task', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_type: taskType }),
+  });
+  const data = await res.json();
+  showToast(`${taskType}: ${data.status}${data.routed_to ? ' → ' + data.routed_to : ''}`);
+}
+
+document.querySelectorAll('[data-task]').forEach((button) => {
+  button.addEventListener('click', () => submitTask(button.dataset.task));
 });
 
 async function refresh() {
@@ -223,33 +522,41 @@ async function refresh() {
 
     document.getElementById('now').textContent = 'live — ' + new Date().toLocaleTimeString();
     document.getElementById('rps').textContent = m.rps_last_10s;
+    document.getElementById('total').textContent = m.total_requests;
     document.getElementById('avg').textContent = m.avg_latency_ms + ' ms';
     document.getElementById('p95').textContent = m.p95_latency_ms + ' ms';
-
-    const errEl = document.getElementById('err');
-    errEl.textContent = m.error_rate_pct + '%';
-    errEl.className = 'value ' + (m.error_rate_pct > 10 ? 'err' : m.error_rate_pct > 2 ? 'warn' : 'ok');
-
+    setValueClass(document.getElementById('err'), m.error_rate_pct, 2, 10, '%');
     document.getElementById('queue').textContent = m.queue_depth;
-    document.getElementById('sys').textContent = m.cpu_percent + '% / ' + m.memory_percent + '%';
+    document.getElementById('sys').textContent = `${m.cpu_percent}% / ${m.memory_percent}%`;
 
-    // latency chart
-    chart.data.labels = m.recent.map((_, i) => i + 1);
-    chart.data.datasets[0].data = m.recent.map(r => r.latency_ms);
-    chart.update();
+    latencyChart.data.labels = m.recent.map((_, i) => i + 1);
+    latencyChart.data.datasets[0].data = m.recent.map((r) => r.latency_ms);
+    latencyChart.update();
 
-    // per-tool table
-    const toolBody = document.querySelector('#toolTable tbody');
-    toolBody.innerHTML = m.by_tool.map(t =>
+    toolChart.data.labels = m.by_tool.map((t) => t.routed_to);
+    toolChart.data.datasets[0].data = m.by_tool.map((t) => t.count);
+    toolChart.update();
+
+    document.querySelector('#toolTable tbody').innerHTML = m.by_tool.map((t) =>
       `<tr><td>${t.routed_to}</td><td>${t.count}</td><td>${t.avg_latency} ms</td><td>${t.failures}</td></tr>`
     ).join('');
 
-    // health table
-    const healthBody = document.querySelector('#healthTable tbody');
-    healthBody.innerHTML = Object.entries(m.health).map(([name, h]) =>
-      `<tr><td>${name}</td><td><span class="dot ${h.circuit_open ? 'open' : 'ok'}"></span>${h.circuit_open ? 'circuit open' : 'healthy'}</td><td>${h.failures}</td></tr>`
-    ).join('');
+    document.getElementById('healthGrid').innerHTML = Object.entries(m.health).map(([name, h]) => `
+      <div class="health-card">
+        <div class="name">${name}</div>
+        <span class="badge ${h.circuit_open ? 'open' : 'ok'}">${h.circuit_open ? 'circuit open' : 'healthy'}</span>
+        <div class="meta">Failures: ${h.failures}${h.circuit_open ? ` · reopens in ${h.reopens_in_sec}s` : ''}</div>
+      </div>
+    `).join('');
 
+    document.querySelector('#recentTable tbody').innerHTML = m.recent.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.routed_to}</td>
+        <td><span class="status-chip ${r.status}">${r.status}</span></td>
+        <td>${r.latency_ms} ms</td>
+      </tr>
+    `).join('');
   } catch (e) {
     document.getElementById('now').textContent = 'disconnected — retrying…';
   }
@@ -258,6 +565,5 @@ async function refresh() {
 refresh();
 setInterval(refresh, 1000);
 </script>
-
 </body>
 </html>
